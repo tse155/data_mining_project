@@ -1,0 +1,12 @@
+# pull official base image made by Jupyter foundation 
+FROM jupyter/base-notebook:latest
+
+# set working directory
+WORKDIR /usr/src/jupyter
+
+
+# install dependencies
+RUN pip install --upgrade pip
+COPY ./jupyter-requirements.txt .
+RUN pip install --no-cache-dir -r jupyter-requirements.txt
+
