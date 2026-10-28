@@ -3,7 +3,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue.svg)
 ![Django](https://img.shields.io/badge/Django-6.x-green.svg)
-![Jupyter](https://shields.io)
+![Jupyter Notebook](https://img.shields.io/badge/jupyter-%23FA0F00.svg?style=for-the-badge&logo=jupyter&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-containerized-2496ED.svg)
 
 
