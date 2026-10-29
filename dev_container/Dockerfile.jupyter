@@ -2,7 +2,7 @@
 FROM jupyter/base-notebook:latest
 
 # set working directory
-WORKDIR /usr/src/jupyter
+WORKDIR /home/jovyan/work
 
 
 # install dependencies
