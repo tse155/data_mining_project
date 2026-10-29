@@ -12,7 +12,9 @@ Do not paste cookies, tokens or headers into public places.
 
 import json
 import time
+import html
 from pathlib import Path
+from bs4 import BeautifulSoup  # type: ignore
 
 import requests
 
@@ -64,13 +66,22 @@ def describe(obj, depth=0, max_depth=3):
             describe(obj[0], depth + 1, max_depth)
 
 
+def clean(field: str) -> str:
+    prev = None
+    while prev != field:  # handles double-encoded text like &amp;iacute;
+        prev, field = field, html.unescape(field)
+    return BeautifulSoup(field, "html.parser").get_text(" ", strip=True)
+
+
 def main():
     resp = requests.post(URL, headers=HEADERS, json=PAYLOAD, timeout=30)
     print("Status:", resp.status_code)
     print("Content-Type:", resp.headers.get("Content-Type"))
 
+    cleaned_text = clean(resp.text)
+
     raw_path = OUT_DIR / "response_raw.txt"
-    raw_path.write_text(resp.text, encoding="utf-8")
+    raw_path.write_text(cleaned_text, encoding="utf-8")
     print(f"Saved raw response to {raw_path} ({len(resp.text)} chars)")
 
     if resp.status_code == 429:
