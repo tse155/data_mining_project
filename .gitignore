@@ -7,3 +7,4 @@ env
 .coverage
 reference.txt
 jupyter-container-ref.txt
+.DS_Store

@@ -27,9 +27,12 @@ ORIGIN = "https://procesosjudiciales.funcionjudicial.gob.ec"
 # Confirmed with curl: the body is a single JSON OBJECT (an array gets HTTP 400).
 # If the server answers 400/422, compare with the Payload tab: a missing or
 # misspelled field is the usual cause. Change one thing at a time.
+ejercicio = 2019
+secuencial = 371
+
 PAYLOAD = {
     "idMovimientoJuicioIncidente": 21187831,
-    "idJuicio": "17510201900371",
+    "idJuicio": f"17510{ejercicio}00{secuencial}",
     "idJudicatura": "17510",
     "idIncidenteJudicatura": 22040693,
     "incidente": 1,
@@ -80,7 +83,7 @@ def main():
 
     cleaned_text = clean(resp.text)
 
-    raw_path = OUT_DIR / "response_raw.txt"
+    raw_path = OUT_DIR / f"17510{ejercicio}00{secuencial}.txt"
     raw_path.write_text(cleaned_text, encoding="utf-8")
     print(f"Saved raw response to {raw_path} ({len(resp.text)} chars)")
 
