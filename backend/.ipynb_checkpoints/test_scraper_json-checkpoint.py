@@ -15,6 +15,10 @@ import time
 import html
 from pathlib import Path
 from bs4 import BeautifulSoup  # type: ignore
+from rapidfuzz import fuzz, process  # type: ignore
+import re
+import unicodedata
+
 
 import requests
 
@@ -44,12 +48,14 @@ HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Origin": ORIGIN,
     "Referer": ORIGIN + "/",
-    # Be honest about who you are; also fine to copy your browser's UA while testing.
     "User-Agent": "Mozilla/5.0 (research script; academic use)",
 }
 
-OUT_DIR = Path("/Users/cesartse/desktop/satje")
+OUT_DIR = Path("/Users/cesartse/desktop/satje/processed")
 OUT_DIR.mkdir(exist_ok=True)
+
+
+RULING_TIPO = re.compile(r"^SENTENCIA\b.*\(RESOLUCION\)$")
 
 
 def describe(obj, depth=0, max_depth=3):
@@ -69,6 +75,16 @@ def describe(obj, depth=0, max_depth=3):
             describe(obj[0], depth + 1, max_depth)
 
 
+def strip_accents(s: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c)
+    )
+
+
+def norm_tipo(s: str) -> str:
+    return re.sub(r"\s+", " ", strip_accents(s or "")).strip().upper()
+
+
 def clean(field: str) -> str:
     prev = None
     while prev != field:  # handles double-encoded text like &amp;iacute;
@@ -76,16 +92,66 @@ def clean(field: str) -> str:
     return BeautifulSoup(field, "html.parser").get_text(" ", strip=True)
 
 
+def clean_json_data(data):
+    """Recursively traverses JSON structures to clean all string values."""
+    target = "SENTENCIA DEMANDA RESOLUCION"
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == "tipo":
+                formated_value = norm_tipo(value)
+                if RULING_TIPO.match(formated_value):
+                    return {key: clean_json_data(value) for key, value in data.items()}
+                else:
+                    return None
+    elif isinstance(data, list):
+        return [clean_json_data(item) for item in data]
+    elif isinstance(data, str):
+        return clean(data)
+    else:
+        return data  # Returns numbers, booleans, or None as-is
+
+
+def process_json_file(input_filename: str, output_filename: str):
+    """Loads a JSON file, cleans it, and saves the output."""
+    # 1. Read the JSON file
+    with open(input_filename, "r", encoding="utf-8") as f:
+        json_data = json.load(f)
+
+    # 2. Clean the entire dataset
+    cleaned_data = clean_json_data(json_data)
+
+    # 3. Save the cleaned JSON back to a file
+    with open(output_filename, "w", encoding="utf-8") as f:
+        json.dump(cleaned_data, f, indent=4, ensure_ascii=False)
+
+
+def remove_nulls(data):
+    if isinstance(data, dict):
+        return {
+            k: remove_nulls(v)
+            for k, v in data.items()
+            if v is not None and remove_nulls(v) is not None
+        }
+    elif isinstance(data, list):
+        return [remove_nulls(v) for v in data if v is not None]
+    return data
+
+
 def main():
     resp = requests.post(URL, headers=HEADERS, json=PAYLOAD, timeout=30)
     print("Status:", resp.status_code)
     print("Content-Type:", resp.headers.get("Content-Type"))
 
-    cleaned_text = clean(resp.text)
+    cleaned_json = clean_json_data(resp.json())
 
-    raw_path = OUT_DIR / f"17510{ejercicio}00{secuencial}.txt"
-    raw_path.write_text(cleaned_text, encoding="utf-8")
-    print(f"Saved raw response to {raw_path} ({len(resp.text)} chars)")
+    not_null_json = remove_nulls(cleaned_json)
+
+    # 3. Convert the cleaned Python object back into a formatted JSON string
+    json_string = json.dumps(not_null_json, indent=4, ensure_ascii=False)
+
+    # 4. Save the string using your Path object
+    raw_path = OUT_DIR / f"17510{ejercicio}00{secuencial}.json"
+    raw_path.write_text(json_string, encoding="utf-8")
 
     if resp.status_code == 429:
         print("Rate limited: stop, wait several minutes, then retry more slowly.")
@@ -113,5 +179,5 @@ def main():
     time.sleep(2)  # always pause between calls if you extend this into a loop
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
