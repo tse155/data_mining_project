@@ -222,8 +222,8 @@ def main():
     # define the desired year
     ejercicio = 2019
     # define the desired range
-    for i in range(1, 376):
-        i = f"0{i}"
+    for i in range(1, 400):
+        # i = f"0{i}"
 
         id_juicio = f"17510{ejercicio}{i:05d}"
 
