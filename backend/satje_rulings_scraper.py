@@ -1,13 +1,19 @@
 """
-Minimal probe for one court-system endpoint, replicating a request seen in the
-browser's Network tab. Goal: learn the response shape for ONE case, politely.
+Probe for the staje court system endpoints.
+Functions to retrieve the ids of judicial process using the required payload
+Functions to retrieve the judicial case in json format
+Functions to filter the relevant "actividad" of the judicial process -> tax ruling
+Functions to save the filtered json file with the ruling "actividad" for further processing
 
 Usage:
-    pip install requests
-    python probe_satje.py
+-> state a year for which the judicial process may be retrieved.
+-> state a range of judicial process to be retrieved
 
-Edit PAYLOAD below using the Network tab -> request -> "Payload" -> "view source".
-Do not paste cookies, tokens or headers into public places.
+Notes:
+-> Not all judicial processes may have a ruling. Therefore, some json files may be empty
+-> We are using code 17510 which corresponds to the Tax Court sitting in Quito
+-> We are retrieving first level rulings (instancia unica), not cassation appeal rulings
+
 """
 
 import json
@@ -23,6 +29,7 @@ import unicodedata
 
 import requests
 
+# URL of the api endpoint that returns a json file with the judicial process information
 URL_Actuaciones = (
     "https://api.funcionjudicial.gob.ec/EXPEL-CONSULTA-CAUSAS-SERVICE"
     "/api/consulta-causas/informacion/actuacionesJudiciales"
@@ -57,6 +64,8 @@ OUT_DIR.mkdir(exist_ok=True)
 # -----Regex type to select only the relevant part of judicial process------#
 
 RULING_TIPO = re.compile(r"^SENTENCIA\b.*\(RESOLUCION\)$")
+
+# -----Regex type to select only the case heard by the Quito tax court------#
 INSTANCE_TYPE = re.compile(
     r"(?i)TRIBUNAL\s+DISTRITAL\s+DE\s+LO\s+CONTENCIOSO\s+TRIBUTARIO\s+CON\s+SEDE\s+EN\s+EL\s+DISTRITO\s+METROPOLITANO\s+DE\s+QUITO,\s+PROVINCIA\s+DE\s+PICHINCHA"
 )
@@ -95,10 +104,15 @@ def norm_tipo(s: str) -> str:
     return re.sub(r"\s+", " ", strip_accents(s or "")).strip().upper()
 
 
-# -----Functions to clean the json returned by the endpoint and retrieve only the ruling------#
+# -----Functions to clean the json returned by the endpoint and retrieve only the ruling activity------#
+# Important: the ruling activity also includes the specific ruling, but also other information
 
 
 def clean(field: str) -> str:
+    """
+    json files have special &amp and iacute chars for HTML.
+    using beautiful soup those chars are modified to their intended spanish form
+    """
     prev = None
     while prev != field:  # handles double-encoded text like &amp;iacute;
         prev, field = field, html.unescape(field)
@@ -107,7 +121,7 @@ def clean(field: str) -> str:
 
 def clean_json_data(data):
     """Recursively traverses JSON structures to clean string values.
-    For efficiency purposes this function filters the ruling in the json
+    For efficiency purposes this function filters the ruling "activity" in the json
     Guarantees that only the ruling is actually cleaned.
     Thus, this avoids cleaning the whole json response that can be extense
     """
@@ -130,7 +144,7 @@ def clean_json_data(data):
 
 
 def process_json_file(input_filename: str, output_filename: str):
-    """Loads a JSON file, cleans it, and saves the output."""
+    """Loads a JSON file, calls the cleaning function, and saves the output."""
     # 1. Read the JSON file
     with open(input_filename, "r", encoding="utf-8") as f:
         json_data = json.load(f)
@@ -156,6 +170,15 @@ def remove_nulls(data):
 
 
 def get_judicatura_ids(header, id_juicio):
+    """ "
+    To retrieve all the activity of a judicial process we need specific ids
+    Using the judicial process number and not specifying a expected response format,
+    it is possible to retrieve those ids and use them in the payload
+    to retrieve the judicial process activity in json format
+
+    Returns: the actual payload to be used in the endpoint that returns
+    the json of a judicial process
+    """
 
     URL_id = f"https://api.funcionjudicial.gob.ec/EXPEL-CONSULTA-CAUSAS-CLEX-SERVICE/api/consulta-causas-clex/informacion/getIncidenteJudicatura/{id_juicio}"
     try:
@@ -165,7 +188,8 @@ def get_judicatura_ids(header, id_juicio):
         if response_id.status_code == 200:
             data = response_id.json()
 
-            # Replicating your jq logic: '.[].lstIncidenteJudicatura[]'
+            # Replicating  jq logic: '.[].lstIncidenteJudicatura[]'
+            # jq logic was identified using curl and specific request bodies
             for item in data:
                 # Safely get the list, defaulting to an empty list if not found
                 judictura_name = item.get("nombreJudicatura")
@@ -195,7 +219,9 @@ def get_judicatura_ids(header, id_juicio):
 
 def main():
     log = {}
+    # define the desired year
     ejercicio = 2019
+    # define the desired range
     for i in range(371, 376):
         if i < 99:
             i = f"0{i}"
@@ -249,7 +275,7 @@ def main():
         print("\nStructure of the response:")
         describe(resp.json())
 
-        time.sleep(4)  # always pause between calls if you extend this into a loop
+        time.sleep(4)  # pausing between calls is advisable
 
 
 if __name__ == "__main__":
