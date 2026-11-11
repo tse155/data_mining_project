@@ -220,7 +220,7 @@ def get_judicatura_ids(header, id_juicio):
 def main():
     log = {}
     # define the desired year
-    ejercicio = 2019
+    ejercicio = 2021
     # define the desired range
     for i in range(1, 400):
         # i = f"0{i}"
