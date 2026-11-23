@@ -30,7 +30,7 @@ ORIGIN = "https://procesosjudiciales.funcionjudicial.gob.ec"
 # Confirmed with curl: the body is a single JSON OBJECT (an array gets HTTP 400).
 # If the server answers 400/422, compare with the Payload tab: a missing or
 # misspelled field is the usual cause. Change one thing at a time.
-ejercicio = 2023
+ejercicio = 2019
 secuencial = 476
 
 PAYLOAD = {
